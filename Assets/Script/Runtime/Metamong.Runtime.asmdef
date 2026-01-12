@@ -1,15 +1,3 @@
 {
-  "name": "Metamong.Runtime",
-  "references": [
-    "Metamong.Protocol"
-  ],
-  "autoReferenced": true,
-  "includePlatforms": [],
-  "excludePlatforms": [],
-  "allowUnsafeCode": false,
-  "overrideReferences": false,
-  "precompiledReferences": [],
-  "autoReferenced": true,
-  "defineConstraints": [],
-  "versionDefines": []
+  "name": "Metamong.Runtime"
 }

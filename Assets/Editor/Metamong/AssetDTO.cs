@@ -1,4 +1,5 @@
 [System.Serializable]
+
 public class AssetDTO
 {
     public string id;

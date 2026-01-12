@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿#if UNITY_EDITOR
+using UnityEditor;
 using UnityEngine;
 using System.Net;
 using System.Text;
@@ -70,8 +71,7 @@ public static class LocalWebServer
             using var reader = new StreamReader(req.InputStream);
             string json = reader.ReadToEnd();
 
-            SaveJsonToStreamingAssets(json);
-
+            SaveJsonToStreamingAssets(json); 
             res.StatusCode = 200;
             using var writer = new StreamWriter(res.OutputStream);
             writer.Write("OK");
@@ -93,7 +93,7 @@ public static class LocalWebServer
         res.Close();
     }
 
-    private static void SaveJsonToStreamingAssets(string json)
+    public static void SaveJsonToStreamingAssets(string json)
     {
         string dir = Application.streamingAssetsPath;
         if (!Directory.Exists(dir))
@@ -102,12 +102,12 @@ public static class LocalWebServer
         string path = Path.Combine(dir, "scene.json");
         File.WriteAllText(path, json);
 
-        UnityMainThreadDispatcher.Enqueue(() =>
-        {
-            var importer = Object.FindFirstObjectByType<SceneImportManager>();
-            importer?.SceneFromJson();
-        });
+        Debug.Log($"[SceneJsonSaver] scene.json saved: {path}");
 
+        // Asset DB 갱신
         AssetDatabase.Refresh();
+
+        SceneImportManager.ImportScene();
     }
 }
+#endif
