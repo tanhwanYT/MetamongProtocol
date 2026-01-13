@@ -1,50 +1,74 @@
 using UnityEngine;
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
+using Metamong.Runtime.Actions;
 
 public class RuntimeEvents : MonoBehaviour
 {
-    //private List<EventDTO> events;
-    //private GameObject owner;
+    private List<RuntimeRule> rules;
+    private GameObject owner;
 
-    //public void Initialize(List<EventDTO> events, GameObject owner)
-    //{
-    //    this.events = events;
-    //    this.owner = owner;
-    //}
+    // 런타임 시스템 참조
+    private IWorld world;
+    private ISignalBus signals;
 
-    //void Start()
-    //{
-    //    ExecuteTrigger("OnStart");
-    //}
+    public void Initialize(
+        List<RuntimeRule> rules,
+        GameObject owner,
+        IWorld world,
+        ISignalBus signals
+    )
+    {
+        this.rules = rules;
+        this.owner = owner;
+        this.world = world;
+        this.signals = signals;
 
-    //void ExecuteTrigger(string trigger)
-    //{
-    //    foreach (var e in events)
-    //    {
-    //        if (e.trigger == trigger)
-    //        {
-    //            ExecuteAction(e);
-    //        }
-    //    }
-    //}
+        Debug.Log($"[RuntimeEvents] Initialized rules={rules?.Count}");
+    }
 
-    //void ExecuteAction(EventDTO e)
-    //{
-    //    switch (e.action)
-    //    {
-    //        case "SetVariable":
-    //            HandleSetVariable(e.@params);
-    //            break;
-    //    }
-    //}
+    void Start()
+    {
+        Debug.Log("[RuntimeEvents] Start()");
+        Execute(EventType.OnStart);
+    }
 
-    //void HandleSetVariable(JObject param)
-    //{
-    //    string name = param["name"].ToString();
-    //    object value = param["value"].ToObject<object>();
+    void Update()
+    {
+        Execute(EventType.OnUpdate);
+    }
 
-    //    var vars = owner.GetComponent<RuntimeVariables>();
-    //    vars.SetValue(name, value);
-    //}
+    void OnDestroy()
+    {
+        Execute(EventType.OnDestroy);
+    }
+
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        Execute(EventType.OnCollision);
+    }
+
+    void Execute(EventType trigger)
+    {
+        if (rules == null) return;
+
+        var ctx = new ActionContext
+        {
+            Owner = owner,
+            DeltaTime = Time.deltaTime,
+            World = world,
+            Signals = signals
+        };
+
+        foreach (var rule in rules)
+        {
+            Debug.Log($"[RuntimeEvents] Check rule trigger={rule.trigger}");
+            if (rule.trigger != trigger)
+                continue;
+
+            if (rule.condition == null || rule.condition.Evaluate(owner))
+            {
+                rule.action?.Execute(ctx);
+            }
+        }
+    }
 }

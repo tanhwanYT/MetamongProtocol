@@ -1,3 +1,6 @@
 {
-  "name": "Metamong.Runtime"
+  "name": "Metamong.Runtime",
+  "references": [
+    "Metamong.Shared"
+  ]
 }

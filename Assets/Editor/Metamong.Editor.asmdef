@@ -1,7 +1,8 @@
 {
   "name": "Metamong.Editor",
     "references": [
-      "Metamong.Runtime"
+      "Metamong.Runtime",
+      "Metamong.Shared"
   ],
   "includePlatforms": [
     "Editor"

@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using Metamong.Shared.DTO;
 public static class VariableSOFactory
 {
     public static VariableSO Create(VariableDTO dto)

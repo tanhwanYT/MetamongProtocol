@@ -16,11 +16,24 @@ public class RuntimeVariables : MonoBehaviour
     {
         return variables.Find(v => v.id == id);
     }
+    public object GetValue(string id)
+    {
+        var v = GetVariable(id);
+        return v != null ? v.GetValue() : null;
+    }
 
     public T GetValue<T>(string id)
     {
-        var v = GetVariable(id);
-        return v != null ? (T)v.GetValue() : default;
+        object value = GetValue(id);
+
+        if (value == null)
+            return default;
+
+        if (value is T t)
+            return t;
+
+        Debug.LogWarning($"Variable '{id}' is not of type {typeof(T)}");
+        return default;
     }
 
     public void SetValue(string id, object value)

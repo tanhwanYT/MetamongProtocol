@@ -2,6 +2,8 @@
 using System.IO;
 using Newtonsoft.Json;
 using System.Collections.Generic;
+using Metamong.Shared.DTO;
+using Metamong.Runtime.Actions;
 
 public class SceneImportManager : MonoBehaviour 
 {
@@ -80,11 +82,19 @@ public class SceneImportManager : MonoBehaviour
             CreateVariables(go, entity.variables);
         }
 
- //       if (entity.events != null && entity.events.Count > 0)
- //       {
-  //          var events = go.AddComponent<RuntimeEvents>();
-  //          events.Initialize(entity.events, go);
-  //      }
+        List<RuntimeRule> runtimeRules = new();
+        foreach (var e in entity.events)
+        {
+            runtimeRules.Add(RuleFactory.Create(e));
+        }
+
+        var runtimeEvents = go.AddComponent<RuntimeEvents>();
+        runtimeEvents.Initialize(
+            runtimeRules,
+        go,
+            null,
+            null
+        );
     }
 
     static AssetDTO FindAssetForEntity(EntityDTO entity)

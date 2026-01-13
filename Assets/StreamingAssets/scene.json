@@ -11,8 +11,8 @@
           "type": "Character",
           "name": "Platformer FakeFlag",
           "texture": "Platformer FakeFlag",
-          "x": 550.7044433859267,
-          "y": 363.69052290103144,
+          "x": 447.33551286518366,
+          "y": 252.31332173653811,
           "variables": [
             {
               "id": "e113fab1-2dd4-4158-9ce5-26261d243630",
@@ -27,79 +27,12 @@
               "trigger": "OnStart",
               "triggerParams": {},
               "conditionLogic": "AND",
-              "conditions": [
-                {
-                  "type": "VarEquals",
-                  "name": "gg",
-                  "value": 0
-                }
-              ],
-              "action": "Move",
+              "conditions": [],
+              "action": "SetVar",
               "params": {
-                "x": 11
+                "name": "gg",
+                "value": 1
               }
-            },
-            {
-              "id": "ev_1_0",
-              "trigger": "OnUpdate",
-              "triggerParams": {},
-              "conditionLogic": "AND",
-              "conditions": [
-                {
-                  "type": "VarEquals",
-                  "name": "gg",
-                  "value": 0
-                }
-              ],
-              "action": "ChaseTarget",
-              "params": {
-                "targetId": "622a2fbc-03b2-4620-abfb-1dd0ca5d2daf"
-              }
-            },
-            {
-              "id": "ev_2_0",
-              "trigger": "OnDestroy",
-              "triggerParams": {},
-              "conditionLogic": "AND",
-              "conditions": [
-                {
-                  "type": "VarEquals",
-                  "name": "gg",
-                  "value": 0
-                }
-              ],
-              "action": "Disable",
-              "params": {}
-            },
-            {
-              "id": "ev_3_0",
-              "trigger": "OnSignalReceive",
-              "triggerParams": {},
-              "conditionLogic": "AND",
-              "conditions": [
-                {
-                  "type": "VarEquals",
-                  "name": "gg",
-                  "value": 0
-                }
-              ],
-              "action": "Rotate",
-              "params": {}
-            },
-            {
-              "id": "ev_4_0",
-              "trigger": "OnCollision",
-              "triggerParams": {},
-              "conditionLogic": "AND",
-              "conditions": [
-                {
-                  "type": "VarEquals",
-                  "name": "gg",
-                  "value": 0
-                }
-              ],
-              "action": "ShowDialogue",
-              "params": {}
             }
           ],
           "modules": [
@@ -141,10 +74,33 @@
           "type": "Character",
           "name": "Platformer Tanhwan Run 1",
           "texture": "Platformer Tanhwan Run 1",
-          "x": 218.01209378224536,
-          "y": 340.925942943113,
-          "variables": [],
-          "events": [],
+          "x": 263.0339683309323,
+          "y": 266.61606759476774,
+          "variables": [
+            {
+              "id": "dedd3e4b-aa3e-4595-95a7-1c9817dd80a8",
+              "name": "tt",
+              "type": "int",
+              "value": 13
+            }
+          ],
+          "events": [
+            {
+              "id": "ev_0_0",
+              "trigger": "OnUpdate",
+              "triggerParams": {},
+              "conditionLogic": "AND",
+              "conditions": [
+                {
+                  "type": "VarEquals",
+                  "name": "tt",
+                  "value": 13
+                }
+              ],
+              "action": "Rotate",
+              "params": {}
+            }
+          ],
           "modules": [
             {
               "id": "323ad574-d5a5-499c-8753-0248f31bcf72",
@@ -240,76 +196,9 @@
           "kind": "Entry",
           "x": 120,
           "y": 120
-        },
-        {
-          "id": "67c0d909-5d13-40c1-8019-ca5a05fa381c",
-          "kind": "Stop",
-          "x": 499,
-          "y": 270,
-          "result": "Success"
-        },
-        {
-          "id": "77e24b22-d87f-40e6-9e0e-138d13f345bf",
-          "kind": "Flow",
-          "x": 438.4000244140625,
-          "y": 89.77499389648438,
-          "blockType": "PlayAnimation",
-          "flowType": "Instant",
-          "params": {}
-        },
-        {
-          "id": "f261e992-a693-4020-b39e-d78f8c9c9d1c",
-          "kind": "Switch",
-          "x": 108.4000244140625,
-          "y": 236.77499389648438,
-          "cases": [
-            {
-              "id": "ecd73127-36d6-4284-a82f-da8db34d3d85",
-              "value": 0
-            },
-            {
-              "id": "1a36a65d-e0ef-42bb-bce6-19537eff7f60",
-              "value": 1
-            }
-          ],
-          "variableName": "isUI"
-        },
-        {
-          "id": "5b0bf097-5c17-4dfb-a01c-da6325b0f0c6",
-          "kind": "Condition",
-          "x": 883.4000244140625,
-          "y": 208.77499389648438,
-          "condition": "IfVariableEquals",
-          "leftLiteral": 0,
-          "rightLiteral": 0
         }
       ],
-      "edges": [
-        {
-          "id": "acf47c20-7674-46f8-840b-f669776a5d50",
-          "type": "flow",
-          "fromNodeId": "fdafaca1-eb29-431c-a038-251ce660cc40",
-          "fromPort": "out",
-          "toNodeId": "67c0d909-5d13-40c1-8019-ca5a05fa381c",
-          "toPort": "in"
-        },
-        {
-          "id": "58d63a22-eb5d-4fe7-86c6-1c271b0fb5a6",
-          "type": "flow",
-          "fromNodeId": "77e24b22-d87f-40e6-9e0e-138d13f345bf",
-          "fromPort": "out",
-          "toNodeId": "5b0bf097-5c17-4dfb-a01c-da6325b0f0c6",
-          "toPort": "in"
-        },
-        {
-          "id": "ed345632-de5e-4568-82e6-b2290fb8beae",
-          "type": "flow",
-          "fromNodeId": "f261e992-a693-4020-b39e-d78f8c9c9d1c",
-          "fromPort": "ecd73127-36d6-4284-a82f-da8db34d3d85",
-          "toNodeId": "77e24b22-d87f-40e6-9e0e-138d13f345bf",
-          "toPort": "in"
-        }
-      ]
+      "edges": []
     }
   ]
 }
