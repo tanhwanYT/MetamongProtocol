@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using UnityEditor;
 using UnityEngine;
@@ -14,28 +15,83 @@ namespace Uniforge.FastTrack.Editor
         private static Thread _serverThread;
         private static bool _isRunning;
         private const int PORT = 7777;
-        
+
         // Critical: Main thread data exchange
         private static string _pendingData;
         private static readonly object _lock = new object();
+        private static bool _initialized = false;
 
         static UniforgeServer()
         {
-            // Clean up previous instances on reload
-            StopServer();
-            
+            if (_initialized) return;
+            _initialized = true;
+
             // Hook into Editor Update
             EditorApplication.update += Update;
-            AssemblyReloadEvents.beforeAssemblyReload += StopServer;
-            EditorApplication.quitting += StopServer;
+            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
+            EditorApplication.quitting += OnQuitting;
 
-            StartServer();
+            // Delay start to avoid conflicts during domain reload
+            EditorApplication.delayCall += () =>
+            {
+                if (!_isRunning)
+                {
+                    StartServer();
+                }
+            };
+        }
+
+        private static void OnBeforeAssemblyReload()
+        {
+            StopServer();
+        }
+
+        private static void OnQuitting()
+        {
+            StopServer();
+        }
+
+        private static bool IsPortAvailable(int port)
+        {
+            try
+            {
+                using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                {
+                    socket.Bind(new IPEndPoint(IPAddress.Loopback, port));
+                    return true;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static void StartServer()
         {
             if (_isRunning) return;
 
+            // Check if port is available
+            if (!IsPortAvailable(PORT))
+            {
+                Debug.LogWarning($"<color=yellow>[UniforgeServer]</color> Port {PORT} in use. Waiting for release...");
+
+                // Try again after delay
+                EditorApplication.delayCall += () =>
+                {
+                    if (!_isRunning)
+                    {
+                        StartServerInternal();
+                    }
+                };
+                return;
+            }
+
+            StartServerInternal();
+        }
+
+        private static void StartServerInternal()
+        {
             try
             {
                 _listener = new HttpListener();
@@ -43,46 +99,82 @@ namespace Uniforge.FastTrack.Editor
                 _listener.Start();
                 _isRunning = true;
 
-                _serverThread = new Thread(ListenLoop);
+                _serverThread = new Thread(ListenLoop)
+                {
+                    IsBackground = true,
+                    Name = "UniforgeServer"
+                };
                 _serverThread.Start();
 
-                Debug.Log($"<color=cyan>[UniforgeServer]</color> Listening on port {PORT}...");
+                Debug.Log($"<color=cyan>[UniforgeServer]</color> Listening on port {PORT}");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[UniforgeServer] Verify Port {PORT}: {e.Message}");
+                Debug.LogError($"[UniforgeServer] Failed to start: {e.Message}");
                 _isRunning = false;
+                _listener = null;
             }
         }
 
         public static void StopServer()
         {
             _isRunning = false;
-            
-            if (_listener != null && _listener.IsListening)
+
+            try
             {
-                _listener.Stop();
-                _listener.Close();
+                if (_listener != null)
+                {
+                    if (_listener.IsListening)
+                    {
+                        _listener.Stop();
+                    }
+                    _listener.Close();
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[UniforgeServer] Stop warning: {e.Message}");
+            }
+            finally
+            {
                 _listener = null;
+            }
+
+            // Give thread time to exit
+            if (_serverThread != null && _serverThread.IsAlive)
+            {
+                _serverThread.Join(500);
+                _serverThread = null;
             }
         }
 
         private static void ListenLoop()
         {
-            while (_isRunning && _listener != null && _listener.IsListening)
+            while (_isRunning && _listener != null)
             {
                 try
                 {
-                    var context = _listener.GetContext(); // Blocking call
+                    if (!_listener.IsListening) break;
+
+                    var context = _listener.GetContext();
                     ThreadPool.QueueUserWorkItem((_) => HandleRequest(context));
                 }
                 catch (HttpListenerException)
                 {
-                    // Listener stopped
+                    // Listener stopped - expected during shutdown
+                    break;
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Listener disposed - expected during shutdown
+                    break;
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"[UniforgeServer] Loop Error: {e.Message}");
+                    if (_isRunning)
+                    {
+                        Debug.LogWarning($"[UniforgeServer] Loop Error: {e.Message}");
+                    }
                 }
             }
         }
@@ -111,7 +203,7 @@ namespace Uniforge.FastTrack.Editor
                     using (var reader = new StreamReader(req.InputStream, req.ContentEncoding))
                     {
                         string json = reader.ReadToEnd();
-                        
+
                         lock (_lock)
                         {
                             _pendingData = json;
@@ -124,7 +216,7 @@ namespace Uniforge.FastTrack.Editor
                 }
                 else
                 {
-                    res.StatusCode = 405; // Method Not Allowed
+                    res.StatusCode = 405;
                 }
             }
             catch (Exception e)
@@ -134,7 +226,7 @@ namespace Uniforge.FastTrack.Editor
             }
             finally
             {
-                res.Close();
+                try { res.Close(); } catch { }
             }
         }
 
@@ -162,14 +254,19 @@ namespace Uniforge.FastTrack.Editor
         public static void RestartServerMenu()
         {
             StopServer();
-            StartServer();
-            Debug.Log("[UniforgeServer] Manual Restart Triggered");
+            EditorApplication.delayCall += () =>
+            {
+                StartServer();
+                Debug.Log("[UniforgeServer] Manual Restart Complete");
+            };
         }
 
         [MenuItem("Uniforge/Check Status")]
         public static void CheckStatusMenu()
         {
-            Debug.Log($"[UniforgeServer] IsRunning: {_isRunning}, Listener: {(_listener != null ? "Active" : "Null")}");
+            string status = _isRunning ? "Running" : "Stopped";
+            string listenerStatus = _listener != null && _listener.IsListening ? "Listening" : "Not Listening";
+            Debug.Log($"[UniforgeServer] Status: {status}, Listener: {listenerStatus}, Port: {PORT}");
         }
     }
 }
