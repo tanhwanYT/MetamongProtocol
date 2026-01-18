@@ -120,6 +120,7 @@ namespace Uniforge.FastTrack.Editor
 
         /// <summary>
         /// Gets operand code for variable operations, handling ValueSource objects.
+        /// Supports: literal, variable, property, mouse
         /// </summary>
         public static string GetOperandCode(Dictionary<string, object> p, string key)
         {
@@ -131,32 +132,138 @@ namespace Uniforge.FastTrack.Editor
             if (val is JObject jo)
             {
                 string type = jo["type"]?.ToString() ?? "literal";
-                if (type == "variable")
+
+                switch (type)
                 {
-                    string varName = jo["name"]?.ToString() ?? "";
-                    return SanitizeName(varName);
-                }
-                else if (type == "literal")
-                {
-                    var litVal = jo["value"];
-                    if (litVal is JObject vec)
-                    {
-                        float x = vec["x"]?.Value<float>() ?? 0;
-                        float y = vec["y"]?.Value<float>() ?? 0;
-                        return $"new Vector2({x}f, {y}f)";
-                    }
-                    return FormatValue(litVal?.ToString());
-                }
-                // Could be a raw vector2
-                if (jo["x"] != null && jo["y"] != null)
-                {
-                    float x = jo["x"]?.Value<float>() ?? 0;
-                    float y = jo["y"]?.Value<float>() ?? 0;
-                    return $"new Vector2({x}f, {y}f)";
+                    case "variable":
+                        {
+                            string varName = jo["name"]?.ToString() ?? "";
+                            return SanitizeName(varName);
+                        }
+
+                    case "literal":
+                        {
+                            var litVal = jo["value"];
+                            if (litVal is JObject vec)
+                            {
+                                float x = vec["x"]?.Value<float>() ?? 0;
+                                float y = vec["y"]?.Value<float>() ?? 0;
+                                return $"new Vector2({x}f, {y}f)";
+                            }
+                            return FormatValue(litVal?.ToString());
+                        }
+
+                    case "property":
+                        {
+                            // Get property from another entity
+                            string targetId = jo["targetId"]?.ToString() ?? "self";
+                            string property = jo["property"]?.ToString() ?? "";
+
+                            if (targetId == "self" || string.IsNullOrEmpty(targetId))
+                            {
+                                // Self property
+                                switch (property)
+                                {
+                                    case "x": return "_transform.position.x";
+                                    case "y": return "_transform.position.y";
+                                    case "rotation": return "_transform.eulerAngles.z";
+                                    case "scaleX": return "_transform.localScale.x";
+                                    case "scaleY": return "_transform.localScale.y";
+                                    default: return SanitizeName(property);
+                                }
+                            }
+                            else
+                            {
+                                // Other entity property
+                                return $"UniforgeEntity.FindById(\"{targetId}\")?.transform.position.{property} ?? 0f";
+                            }
+                        }
+
+                    case "mouse":
+                        {
+                            // Mouse position
+                            string axis = jo["axis"]?.ToString();
+                            string mode = jo["mode"]?.ToString() ?? "absolute";
+
+                            // If no axis specified, return Vector2
+                            if (string.IsNullOrEmpty(axis))
+                            {
+                                if (mode == "screen")
+                                {
+                                    return "new Vector2(Input.mousePosition.x, Input.mousePosition.y)";
+                                }
+                                else if (mode == "relative")
+                                {
+                                    return "new Vector2(Camera.main.ScreenToWorldPoint(Input.mousePosition).x - _transform.position.x, " +
+                                           "Camera.main.ScreenToWorldPoint(Input.mousePosition).y - _transform.position.y)";
+                                }
+                                else
+                                {
+                                    return "new Vector2(Camera.main.ScreenToWorldPoint(Input.mousePosition).x, " +
+                                           "Camera.main.ScreenToWorldPoint(Input.mousePosition).y)";
+                                }
+                            }
+
+                            // Single axis
+                            if (mode == "screen")
+                            {
+                                return axis == "x" ? "Input.mousePosition.x" : "Input.mousePosition.y";
+                            }
+                            else if (mode == "relative")
+                            {
+                                // Relative to entity
+                                return axis == "x"
+                                    ? "(Camera.main.ScreenToWorldPoint(Input.mousePosition).x - _transform.position.x)"
+                                    : "(Camera.main.ScreenToWorldPoint(Input.mousePosition).y - _transform.position.y)";
+                            }
+                            else
+                            {
+                                // Absolute world position
+                                return axis == "x"
+                                    ? "Camera.main.ScreenToWorldPoint(Input.mousePosition).x"
+                                    : "Camera.main.ScreenToWorldPoint(Input.mousePosition).y";
+                            }
+                        }
+
+                    default:
+                        // Could be a raw vector2
+                        if (jo["x"] != null && jo["y"] != null)
+                        {
+                            float x = jo["x"]?.Value<float>() ?? 0;
+                            float y = jo["y"]?.Value<float>() ?? 0;
+                            return $"new Vector2({x}f, {y}f)";
+                        }
+                        break;
                 }
             }
 
             return FormatValue(val.ToString());
+        }
+
+        /// <summary>
+        /// Gets a ValueSource as a complete expression (for complex sources like mouse).
+        /// </summary>
+        public static string GetValueSourceCode(Dictionary<string, object> p, string key, string defaultValue = "0")
+        {
+            if (!p.ContainsKey(key) || p[key] == null) return defaultValue;
+            return GetOperandCode(p, key);
+        }
+
+        /// <summary>
+        /// Checks if a parameter is a dynamic ValueSource (not a literal).
+        /// </summary>
+        public static bool IsDynamicValueSource(Dictionary<string, object> p, string key)
+        {
+            if (!p.ContainsKey(key) || p[key] == null) return false;
+
+            var val = p[key];
+            if (val is JObject jo)
+            {
+                string type = jo["type"]?.ToString() ?? "literal";
+                return type != "literal";
+            }
+
+            return false;
         }
     }
 }

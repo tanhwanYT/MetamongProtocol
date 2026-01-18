@@ -86,30 +86,50 @@ namespace Uniforge.FastTrack.Editor
 
         public static void AttachScript(GameObject go, string entityId)
         {
-            if (go == null || string.IsNullOrEmpty(entityId)) return;
+            if (go == null)
+            {
+                Debug.LogWarning($"[ScriptAttacher] GameObject is null for entityId: {entityId}");
+                return;
+            }
+            if (string.IsNullOrEmpty(entityId))
+            {
+                Debug.LogWarning($"[ScriptAttacher] EntityId is null/empty for GameObject: {go.name}");
+                return;
+            }
 
             string className = $"Gen_{entityId.Replace("-", "_")}";
 
-            try 
+            try
             {
                 // Try to load from Assembly-CSharp (Runtime scripts)
                 var assembly = System.Reflection.Assembly.Load("Assembly-CSharp");
-                if (assembly == null) return;
+                if (assembly == null)
+                {
+                    Debug.LogError($"[ScriptAttacher] Assembly-CSharp not loaded!");
+                    return;
+                }
 
                 var type = assembly.GetType(className);
 
-                if (type != null)
+                if (type == null)
                 {
-                    if (go.GetComponent(type) == null)
-                    {
-                        go.AddComponent(type);
-                        Debug.Log($"[Uniforge] Attached {className} to {go.name}");
-                    }
+                    Debug.LogWarning($"[ScriptAttacher] Class not found: {className}. Script might not be compiled yet.");
+                    return;
+                }
+
+                if (go.GetComponent(type) == null)
+                {
+                    go.AddComponent(type);
+                    Debug.Log($"<color=green>[ScriptAttacher]</color> Attached {className} to {go.name}");
+                }
+                else
+                {
+                    Debug.Log($"[ScriptAttacher] {className} already attached to {go.name}");
                 }
             }
-            catch
+            catch (System.Exception ex)
             {
-                // Assembly might not be loaded yet or class doesn't exist
+                Debug.LogError($"[ScriptAttacher] Failed to attach {className}: {ex.Message}");
             }
         }
     }

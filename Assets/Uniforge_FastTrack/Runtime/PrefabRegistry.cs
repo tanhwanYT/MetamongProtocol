@@ -1,16 +1,12 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace Uniforge.FastTrack.Runtime
 {
-    /// <summary>
-    /// Registry for entity prefabs, enabling SpawnEntity functionality.
-    /// Maps entity IDs/names to prefab instances.
-    /// </summary>
     public class PrefabRegistry : MonoBehaviour
     {
         [Header("Registered Prefabs")]
-        [Tooltip("Manually assign prefabs or they will be auto-registered during import")]
         public List<PrefabEntry> Prefabs = new List<PrefabEntry>();
 
         private Dictionary<string, GameObject> _registry = new Dictionary<string, GameObject>();
@@ -18,7 +14,6 @@ namespace Uniforge.FastTrack.Runtime
 
         void Awake()
         {
-            // Build registry from inspector list
             foreach (var entry in Prefabs)
             {
                 if (entry.Prefab != null && !string.IsNullOrEmpty(entry.Id))
@@ -28,20 +23,15 @@ namespace Uniforge.FastTrack.Runtime
             }
         }
 
-        /// <summary>
-        /// Register a runtime entity as a spawn template.
-        /// </summary>
         public void RegisterTemplate(string id, GameObject template)
         {
             _runtimeTemplates[id] = template;
         }
 
-        /// <summary>
-        /// Spawn an entity by template ID.
-        /// </summary>
         public GameObject Spawn(string templateId, Vector3 position, Quaternion rotation = default)
         {
-            if (rotation == default) rotation = Quaternion.identity;
+            if (rotation.x == 0 && rotation.y == 0 && rotation.z == 0 && rotation.w == 0)
+                rotation = Quaternion.identity;
 
             GameObject prefab = GetPrefab(templateId);
             if (prefab == null)
@@ -50,20 +40,38 @@ namespace Uniforge.FastTrack.Runtime
                 return null;
             }
 
-            return Instantiate(prefab, position, rotation);
+            GameObject spawned = Instantiate(prefab, position, rotation);
+            AttachGeneratedScript(spawned, templateId);
+            return spawned;
         }
 
-        /// <summary>
-        /// Spawn self (clone the calling entity).
-        /// </summary>
-        public GameObject SpawnSelf(GameObject self, Vector3 position)
+        private void AttachGeneratedScript(GameObject go, string entityId)
         {
-            return Instantiate(self, position, self.transform.rotation);
+            if (go == null || string.IsNullOrEmpty(entityId)) return;
+
+            string className = $"Gen_{entityId.Replace("-", "_")}";
+
+            try
+            {
+                Assembly assembly = Assembly.Load("Assembly-CSharp");
+                if (assembly == null) return;
+
+                System.Type scriptType = assembly.GetType(className);
+                if (scriptType == null)
+                    scriptType = assembly.GetType($"Uniforge.FastTrack.Generated.{className}");
+
+                if (scriptType != null && go.GetComponent(scriptType) == null)
+                {
+                    go.AddComponent(scriptType);
+                    Debug.Log($"<color=green>[PrefabRegistry]</color> Attached {className} to {go.name}");
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[PrefabRegistry] Failed to attach script: {ex.Message}");
+            }
         }
 
-        /// <summary>
-        /// Static shortcut for generated scripts.
-        /// </summary>
         public static GameObject SpawnStatic(string templateId, Vector3 position)
         {
             if (UniforgeRuntime.Instance?.Prefabs != null)
@@ -79,18 +87,33 @@ namespace Uniforge.FastTrack.Runtime
             return Instantiate(self, position, self.transform.rotation);
         }
 
+        public GameObject SpawnSelf(GameObject self, Vector3 position)
+        {
+            return Instantiate(self, position, self.transform.rotation);
+        }
+
         private GameObject GetPrefab(string templateId)
         {
-            // Check runtime templates first (entities registered during play)
             if (_runtimeTemplates.TryGetValue(templateId, out var runtimePrefab))
                 return runtimePrefab;
 
-            // Check inspector-assigned prefabs
             if (_registry.TryGetValue(templateId, out var prefab))
                 return prefab;
 
-            // Try to find by name in scene
+            // Find by UniforgeEntity.EntityId
+            var allEntities = FindObjectsByType<UniforgeEntity>(FindObjectsSortMode.None);
+            foreach (var entity in allEntities)
+            {
+                if (entity.EntityId == templateId)
+                {
+                    _runtimeTemplates[templateId] = entity.gameObject;
+                    return entity.gameObject;
+                }
+            }
+
             var found = GameObject.Find(templateId);
+            if (found != null)
+                _runtimeTemplates[templateId] = found;
             return found;
         }
     }

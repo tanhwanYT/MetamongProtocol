@@ -35,22 +35,19 @@ namespace Uniforge.FastTrack.Runtime
             if (Projectiles == null) Projectiles = GetComponentInChildren<ProjectileManager>() ?? gameObject.AddComponent<ProjectileManager>();
         }
 
-        /// <summary>
-        /// Auto-creates the runtime if it doesn't exist.
-        /// </summary>
         public static void EnsureExists()
         {
             if (Instance == null)
             {
                 var go = new GameObject("[UniforgeRuntime]");
-                go.AddComponent<UniforgeRuntime>();
+                var runtime = go.AddComponent<UniforgeRuntime>();
+                // Force initialization immediately
+                if (runtime.Particles == null) runtime.Particles = go.AddComponent<ParticleManager>();
+                Instance = runtime;
             }
         }
     }
 
-    /// <summary>
-    /// Global event bus for signal-based communication.
-    /// </summary>
     public static class EventBus
     {
         private static Dictionary<string, Action<object>> _listeners = new Dictionary<string, Action<object>>();
@@ -61,7 +58,6 @@ namespace Uniforge.FastTrack.Runtime
             {
                 action?.Invoke(data);
             }
-            Debug.Log($"[EventBus] Emitted: {signalKey}");
         }
 
         public static void Subscribe(string signalKey, Action<object> callback)
@@ -90,9 +86,6 @@ namespace Uniforge.FastTrack.Runtime
         }
     }
 
-    /// <summary>
-    /// Simple dialogue manager for showing text.
-    /// </summary>
     public static class DialogueManager
     {
         public static event Action<string> OnDialogueShow;

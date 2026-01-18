@@ -3,10 +3,6 @@ using System.Collections.Generic;
 
 namespace Uniforge.FastTrack.Runtime
 {
-    /// <summary>
-    /// Manages particle effects for UniForge games.
-    /// Supports built-in presets and custom particle assets.
-    /// </summary>
     public class ParticleManager : MonoBehaviour
     {
         [Header("Particle Pool")]
@@ -17,7 +13,6 @@ namespace Uniforge.FastTrack.Runtime
 
         void Awake()
         {
-            // Pre-warm pool with generic particles
             for (int i = 0; i < PoolSize; i++)
             {
                 var ps = CreateGenericParticle();
@@ -26,33 +21,35 @@ namespace Uniforge.FastTrack.Runtime
             }
         }
 
-        /// <summary>
-        /// Play a particle effect at position.
-        /// </summary>
         public void Play(string preset, Vector3 position, float scale = 1f)
         {
+            Debug.Log($"[ParticleManager] Playing particle '{preset}' at {position}");
             var ps = GetParticle();
             ps.transform.position = position;
             ps.transform.localScale = Vector3.one * scale;
-
             ConfigurePreset(ps, preset);
-
             ps.gameObject.SetActive(true);
             ps.Play();
-
-            // Auto return to pool
             StartCoroutine(ReturnToPoolAfter(ps, ps.main.duration + ps.main.startLifetime.constantMax));
         }
 
-        /// <summary>
-        /// Static shortcut for generated scripts.
-        /// </summary>
         public static void PlayStatic(string preset, Vector3 position, float scale = 1f)
         {
+            // Ensure runtime exists
+            if (UniforgeRuntime.Instance == null)
+            {
+                UniforgeRuntime.EnsureExists();
+            }
+            
             if (UniforgeRuntime.Instance?.Particles != null)
+            {
+                Debug.Log($"[ParticleManager] PlayStatic: {preset} at {position}");
                 UniforgeRuntime.Instance.Particles.Play(preset, position, scale);
+            }
             else
-                Debug.LogWarning($"[ParticleManager] Runtime not initialized. Cannot play: {preset}");
+            {
+                Debug.LogWarning($"[ParticleManager] Cannot play '{preset}' - Particles manager is null");
+            }
         }
 
         private ParticleSystem GetParticle()
@@ -72,6 +69,8 @@ namespace Uniforge.FastTrack.Runtime
             go.transform.SetParent(transform);
             var ps = go.AddComponent<ParticleSystem>();
             
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            
             var main = ps.main;
             main.loop = false;
             main.playOnAwake = false;
@@ -84,6 +83,14 @@ namespace Uniforge.FastTrack.Runtime
             var emission = ps.emission;
             emission.rateOverTime = 0;
             emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 10) });
+
+            // Set default material to prevent pink/purple particles
+            var renderer = ps.GetComponent<ParticleSystemRenderer>();
+            if (renderer != null)
+            {
+                renderer.material = new Material(Shader.Find("Sprites/Default"));
+                renderer.sortingOrder = 2000;
+            }
 
             return ps;
         }
@@ -101,7 +108,6 @@ namespace Uniforge.FastTrack.Runtime
                     main.startSize = 0.05f;
                     emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 15) });
                     break;
-
                 case "explosion":
                     main.startColor = new Color(1f, 0.5f, 0f);
                     main.startSpeed = 8f;
@@ -109,7 +115,6 @@ namespace Uniforge.FastTrack.Runtime
                     main.startLifetime = 0.8f;
                     emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 30) });
                     break;
-
                 case "blood":
                     main.startColor = new Color(0.8f, 0.1f, 0.1f);
                     main.startSpeed = 4f;
@@ -117,52 +122,9 @@ namespace Uniforge.FastTrack.Runtime
                     main.gravityModifier = 1f;
                     emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 20) });
                     break;
-
-                case "heal":
-                    main.startColor = new Color(0.3f, 1f, 0.5f);
-                    main.startSpeed = 2f;
-                    main.startSize = 0.15f;
-                    main.gravityModifier = -0.5f;
-                    emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 12) });
-                    break;
-
-                case "magic":
-                    main.startColor = new Color(0.6f, 0.3f, 1f);
-                    main.startSpeed = 3f;
-                    main.startSize = 0.12f;
-                    emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 25) });
-                    break;
-
-                case "sparkle":
-                    main.startColor = Color.white;
-                    main.startSpeed = 1f;
-                    main.startSize = 0.05f;
-                    main.startLifetime = 1f;
-                    emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 8) });
-                    break;
-
-                case "dust":
-                    main.startColor = new Color(0.6f, 0.5f, 0.4f, 0.5f);
-                    main.startSpeed = 1f;
-                    main.startSize = 0.15f;
-                    emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 5) });
-                    break;
-
                 default:
-                    // Check for custom particle (custom:assetId format)
-                    if (preset.StartsWith("custom:"))
-                    {
-                        string assetId = preset.Substring(7);
-                        LoadCustomParticle(ps, assetId);
-                    }
                     break;
             }
-        }
-
-        private void LoadCustomParticle(ParticleSystem ps, string assetId)
-        {
-            // TODO: Load custom particle texture from asset registry
-            Debug.Log($"[ParticleManager] Custom particle: {assetId}");
         }
 
         private System.Collections.IEnumerator ReturnToPoolAfter(ParticleSystem ps, float delay)
