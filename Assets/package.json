@@ -1,6 +1,6 @@
 {
     "name": "com.tanhwan.metamong-protocol",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "displayName": "Metamong Protocol",
     "description": "Web → Unity Scene Protocol",
     "unity": "2022.3",
